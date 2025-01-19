@@ -1,4 +1,4 @@
-# Parks and Facilities Manager Plugin
+# Parks and Facilities Manager Plugin - [Live Demo](https://plugins.rohantgeorge.ca/parks-directory/)
 
 ## Description
 
