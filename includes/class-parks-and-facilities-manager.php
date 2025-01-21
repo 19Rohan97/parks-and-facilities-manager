@@ -14,6 +14,8 @@ class Parks_Manager
         add_action('save_post', [$this, 'save_park_meta']);
         add_shortcode('park_list', [$this, 'display_parks_shortcode']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_styles']);
+        add_action('wp_ajax_filter_parks', [$this, 'handle_ajax_filter']);
+        add_action('wp_ajax_nopriv_filter_parks', [$this, 'handle_ajax_filter']);
     }
 
     public function register_park_post_type()
@@ -127,43 +129,44 @@ class Parks_Manager
 
     public function display_parks_shortcode()
     {
-        $parks = new WP_Query([
-            'post_type'      => 'park',
-            'posts_per_page' => -1,
+        // Fetch unique locations
+        $locations = $this->get_unique_locations();
+
+        // Fetch facilities
+        $facilities = get_terms([
+            'taxonomy'   => 'facility',
+            'hide_empty' => true,
         ]);
 
-        if (! $parks->have_posts()) {
-            return '<p>No parks available.</p>';
+        ob_start();
+
+        // Filter Form
+        echo '<div class="parks-filters" style="margin-bottom: 20px;">';
+
+        // Location Filter
+        echo '<select id="location-filter" style="margin-right: 10px;">';
+        echo '<option value="">Select Location</option>';
+        foreach ($locations as $location) {
+            echo '<option value="' . esc_attr($location) . '">' . esc_html($location) . '</option>';
         }
+        echo '</select>';
 
-        $output = '<div class="parks-list">';
-
-        while ($parks->have_posts()) {
-            $parks->the_post();
-
-            $location = get_post_meta(get_the_ID(), 'location', true);
-            $hours_weekday = get_post_meta(get_the_ID(), 'hours_weekday', true);
-            $hours_weekend = get_post_meta(get_the_ID(), 'hours_weekend', true);
-            $description = wp_trim_words(get_the_content(), 20);
-            $featured_image = get_the_post_thumbnail(get_the_ID(), 'medium', ['style' => 'width: 100%; height: 250px; border-radius: 5px; object-fit: cover;']);
-
-            $output .= '<div class="park-item">';
-            $output .= $featured_image;
-            $output .= '<div class="park-item--info">';
-            $output .= '<a href="https://www.google.com/maps/search/' . urlencode($location) . '" target="_blank"><span class="park-item--location">' . esc_html($location) . '</span></a>';
-            $output .= '<h3 class="park-item--title"><a href="' . get_the_permalink() . '">' . esc_html(get_the_title()) . '</a></h3>';
-            $output .= '<p class="park-item--desc">' . wp_kses_post($description) . '</p>';
-            $output .= '<p class="park-item--hours"><strong>Weekday Hours:</strong> ' . esc_html($hours_weekday) . '</p>';
-            $output .= '</div>';
-            $output .= '</div>';
+        // Facility Filter
+        echo '<select id="facility-filter">';
+        echo '<option value="">Select Facility</option>';
+        foreach ($facilities as $facility) {
+            echo '<option value="' . esc_attr($facility->slug) . '">' . esc_html($facility->name) . '</option>';
         }
+        echo '</select>';
 
-        wp_reset_postdata();
+        echo '</div>';
 
-        $output .= '</div>';
+        // Parks List Placeholder
+        echo '<div id="parks-list"></div>';
 
-        return $output;
+        return ob_get_clean();
     }
+
 
     public function enqueue_styles()
     {
@@ -173,5 +176,75 @@ class Parks_Manager
             [],
             '1.0.0'
         );
+        wp_enqueue_script('parks-manager-ajax', plugin_dir_url(dirname(__FILE__)) . 'js/ajax-filters.js', ['jquery'], '1.0.0', true);
+
+        // Pass AJAX URL to the script
+        wp_localize_script('parks-manager-ajax', 'ajaxurl', admin_url('admin-ajax.php'));
+    }
+
+
+    private function get_unique_locations()
+    {
+        global $wpdb;
+
+        $results = $wpdb->get_col("SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key = 'location'");
+        return array_filter($results);
+    }
+
+    public function handle_ajax_filter()
+    {
+        $location = isset($_POST['location']) ? sanitize_text_field($_POST['location']) : '';
+        $facility = isset($_POST['facility']) ? sanitize_text_field($_POST['facility']) : '';
+
+        // Query arguments
+        $args = [
+            'post_type'      => 'park',
+            'posts_per_page' => -1,
+            'meta_query'     => [],
+            'tax_query'      => [],
+        ];
+
+        if (!empty($location)) {
+            $args['meta_query'][] = [
+                'key'     => 'location',
+                'value'   => $location,
+                'compare' => 'LIKE',
+            ];
+        }
+
+        if (!empty($facility)) {
+            $args['tax_query'][] = [
+                'taxonomy' => 'facility',
+                'field'    => 'slug',
+                'terms'    => $facility,
+            ];
+        }
+
+        $parks = new WP_Query($args);
+
+        if ($parks->have_posts()) {
+            while ($parks->have_posts()) {
+                $parks->the_post();
+                $location = get_post_meta(get_the_ID(), 'location', true);
+                $hours_weekday = get_post_meta(get_the_ID(), 'hours_weekday', true);
+                $hours_weekend = get_post_meta(get_the_ID(), 'hours_weekend', true);
+                $description = wp_trim_words(get_the_content(), 20);
+                $featured_image = get_the_post_thumbnail(get_the_ID(), 'medium', ['style' => 'width: 100%; height: 300px; object-fit: cover; border-radius: 5px;']);
+
+                echo '<div class="park-item">';
+                echo $featured_image;
+                echo '<div class="park-item--info">';
+                echo '<a href="https://www.google.com/maps/search/' . urlencode($location) . '" target="_blank"><span class="park-item--location">' . esc_html($location) . '</span></a>';
+                echo '<h3 class="park-item--title"><a href="' . get_the_permalink() . '">' . esc_html(get_the_title()) . '</a></h3>';
+                echo '<p class="park-item--desc">' . wp_kses_post($description) . '</p>';
+                echo '<p class="park-item--hours"><strong>Weekday Hours:</strong> ' . esc_html($hours_weekday) . '</p>';
+                echo '</div>';
+                echo '</div>';
+            }
+        } else {
+            echo '<p>No parks available for the selected filters.</p>';
+        }
+
+        wp_die();
     }
 }

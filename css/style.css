@@ -6,24 +6,24 @@ a {
   text-decoration: none;
 }
 
-.parks-list {
+#parks-list {
   /* display: grid;
   grid-template-columns: repeat(3, 1fr); */
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: stretch;
   flex-wrap: wrap;
   column-gap: 30px;
   row-gap: 40px;
 }
 
-.parks-list .park-item {
+#parks-list .park-item {
   width: 100%;
   max-width: calc(413.33px - 30px);
   height: 100%;
 }
 
-.parks-list .park-item .park-item--info {
+#parks-list .park-item .park-item--info {
   padding: 20px;
   background: #fff;
   box-shadow: 0 0 30px -24px rgba(0, 0, 0, 0.6);
@@ -37,29 +37,35 @@ a {
   position: relative;
 }
 
-.parks-list .park-item .park-item--info .park-item--location {
+#parks-list .park-item .park-item--info .park-item--location {
   font-size: 16px;
   font-weight: 700;
   color: #009e5f;
 }
 
-.parks-list .park-item .park-item--info .park-item--title {
+#parks-list .park-item .park-item--info .park-item--title {
   margin: 8px 0 12px;
   font-size: 22px;
   line-height: 1.4;
 }
 
-.parks-list .park-item .park-item--info .park-item--desc {
+#parks-list .park-item .park-item--info .park-item--desc {
   font-size: 18px;
   margin: 0 0 20px;
 }
 
-.parks-list .park-item .park-item--info h4 {
+#parks-list .park-item .park-item--info h4 {
   margin: 0 0 12px;
 }
 
-.parks-list .park-item .park-item--info .park-item--hours {
+#parks-list .park-item .park-item--info .park-item--hours {
   margin: 0;
   line-height: 1.6;
   font-size: 16px;
+}
+
+@media only screen and (max-width: 767px) {
+  #parks-list {
+    justify-content: center;
+  }
 }
